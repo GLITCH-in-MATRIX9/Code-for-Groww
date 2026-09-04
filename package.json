@@ -1,0 +1,22 @@
+{
+  "name": "code-for-groww",
+  "version": "1.0.0",
+  "description": "Pulse smart market watchlist app",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/GLITCH-in-MATRIX9/Code-for-Groww"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
