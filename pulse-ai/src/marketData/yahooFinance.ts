@@ -9,7 +9,7 @@ const yahooFinance = new YahooFinance({
 });
 
 /* ========================================
-   CACHE CONFIGURATION
+   CACHE
 ======================================== */
 
 interface CacheEntry<T> {
@@ -19,95 +19,19 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<unknown>>();
 
-const QUOTE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const HISTORY_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-const SEARCH_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const QUOTE_CACHE_TTL = 5 * 60 * 1000;
+const HISTORY_CACHE_TTL = 15 * 60 * 1000;
+const SEARCH_CACHE_TTL = 10 * 60 * 1000;
 
 /* ========================================
-   HELPER FUNCTIONS
+   REQUEST DEDUPLICATION
 ======================================== */
 
-const sleep = (milliseconds: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
+const pendingRequests = new Map<
+  string,
+  Promise<unknown>
+>();
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
-function isYahooRateLimitError(error: unknown): boolean {
-  const message = getErrorMessage(error).toLowerCase();
-
-  return (
-    message.includes("429") ||
-    message.includes("too many requests") ||
-    message.includes("failed to get crumb") ||
-    message.includes("rate limit")
-  );
-}
-
-/**
- * Executes a Yahoo Finance request with retry handling.
- *
- * Delays:
- * Attempt 1: 2 seconds
- * Attempt 2: 4 seconds
- * Attempt 3: 8 seconds
- */
-async function withYahooRetry<T>(
-  operation: () => Promise<T>,
-  retries = 3
-): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
-
-      const message = getErrorMessage(error);
-
-      console.error(
-        `Yahoo Finance request failed on attempt ${
-          attempt + 1
-        }/${retries + 1}:`,
-        message
-      );
-
-      const isRateLimitError = isYahooRateLimitError(error);
-
-      /*
-       * Do not retry unrelated errors such as invalid
-       * arguments or programming errors.
-       */
-      if (!isRateLimitError || attempt === retries) {
-        throw error;
-      }
-
-      const delay = 2000 * 2 ** attempt;
-
-      console.warn(
-        `Yahoo Finance rate-limited the request. Retrying in ${
-          delay / 1000
-        } seconds...`
-      );
-
-      await sleep(delay);
-    }
-  }
-
-  throw lastError;
-}
-
-/**
- * Returns cached data if available and not expired.
- * Otherwise, executes the supplied operation and caches
- * the result.
- */
 async function getCachedData<T>(
   key: string,
   operation: () => Promise<T>,
@@ -117,29 +41,129 @@ async function getCachedData<T>(
 
   if (cached && cached.expiresAt > Date.now()) {
     console.log(`[cache hit] ${key}`);
-
     return cached.value as T;
+  }
+
+  const existingRequest = pendingRequests.get(key);
+
+  if (existingRequest) {
+    console.log(`[request deduplicated] ${key}`);
+    return existingRequest as Promise<T>;
   }
 
   console.log(`[cache miss] ${key}`);
 
-  const value = await operation();
+  const request = operation();
 
-  cache.set(key, {
-    value,
-    expiresAt: Date.now() + ttl,
-  });
+  pendingRequests.set(key, request);
 
-  return value;
+  try {
+    const value = await request;
+
+    cache.set(key, {
+      value,
+      expiresAt: Date.now() + ttl,
+    });
+
+    return value;
+  } finally {
+    pendingRequests.delete(key);
+  }
+}
+
+/* ========================================
+   YAHOO REQUEST QUEUE
+======================================== */
+
+let lastYahooRequestTime = 0;
+let yahooQueue: Promise<unknown> = Promise.resolve();
+
+const MIN_REQUEST_INTERVAL = 1500;
+
+function isYahooRateLimitError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
+
+  return (
+    message.includes("429") ||
+    message.includes("too many requests") ||
+    message.includes("failed to get crumb") ||
+    message.includes("rate limit")
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : String(error);
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) =>
+    setTimeout(resolve, milliseconds)
+  );
 }
 
 /**
- * Optional helper to clear the cache.
- * Useful if you add an admin/debug endpoint later.
+ * Runs Yahoo requests sequentially.
+ * This prevents multiple simultaneous crumb requests.
  */
+function runYahooRequest<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  const request = yahooQueue.then(async () => {
+    const elapsed =
+      Date.now() - lastYahooRequestTime;
+
+    if (elapsed < MIN_REQUEST_INTERVAL) {
+      await wait(
+        MIN_REQUEST_INTERVAL - elapsed
+      );
+    }
+
+    lastYahooRequestTime = Date.now();
+
+    try {
+      return await operation();
+    } catch (error) {
+      console.error(
+        "Yahoo Finance request failed:",
+        getErrorMessage(error)
+      );
+
+      /*
+       * Retry only once, and only for rate limits.
+       * Do not create a repeated retry storm.
+       */
+      if (isYahooRateLimitError(error)) {
+        console.warn(
+          "Yahoo Finance rate limit detected. Waiting before one retry..."
+        );
+
+        await wait(5000);
+
+        lastYahooRequestTime = Date.now();
+
+        return await operation();
+      }
+
+      throw error;
+    }
+  });
+
+  yahooQueue = request.catch(() => undefined);
+
+  return request;
+}
+
+/* ========================================
+   CACHE CONTROL
+======================================== */
+
 export function clearYahooCache(): void {
   cache.clear();
-
   console.log("[cache] Yahoo Finance cache cleared");
 }
 
@@ -170,13 +194,12 @@ export async function getStockQuote(
   const quote = await getCachedData(
     `quote:${normalizedSymbol}`,
     () =>
-      withYahooRetry(() =>
+      runYahooRequest(() =>
         yahooFinance.quote(normalizedSymbol)
       ),
     QUOTE_CACHE_TTL
   );
 
-  // Currency debugging
   console.log("[currency debug]", {
     input: normalizedSymbol,
     resolvedSymbol: quote.symbol,
@@ -184,12 +207,14 @@ export async function getStockQuote(
     exchange: quote.exchange,
   });
 
-  const price = quote.regularMarketPrice ?? 0;
+  const price =
+    quote.regularMarketPrice ?? 0;
 
   const previousClose =
     quote.regularMarketPreviousClose ?? 0;
 
-  const volume = quote.regularMarketVolume ?? 0;
+  const volume =
+    quote.regularMarketVolume ?? 0;
 
   const averageVolume =
     quote.averageDailyVolume3Month ?? 0;
@@ -252,31 +277,23 @@ export async function getHistoricalMarketData(
   }
 
   if (days <= 0) {
-    throw new Error("Number of historical days must be greater than zero");
+    throw new Error(
+      "Historical days must be greater than zero"
+    );
   }
 
-  const cacheKey = `history:${normalizedSymbol}:${days}`;
-
   return getCachedData(
-    cacheKey,
+    `history:${normalizedSymbol}:${days}`,
     async () => {
       const endDate = new Date();
 
       const startDate = new Date();
 
-      /*
-       * Fetch enough history for:
-       *
-       * SMA 20
-       * SMA 50
-       * SMA 200
-       * RSI
-       * Support / Resistance
-       * 1 Year charts
-       */
-      startDate.setDate(startDate.getDate() - days);
+      startDate.setDate(
+        startDate.getDate() - days
+      );
 
-      const result = await withYahooRetry(() =>
+      const result = await runYahooRequest(() =>
         yahooFinance.chart(normalizedSymbol, {
           period1: startDate,
           period2: endDate,
@@ -295,21 +312,14 @@ export async function getHistoricalMarketData(
             day.volume !== null
           );
         })
-        .map((day) => {
-          return {
-            date: new Date(day.date),
-
-            open: Number(day.open),
-
-            high: Number(day.high),
-
-            low: Number(day.low),
-
-            close: Number(day.close),
-
-            volume: Number(day.volume),
-          };
-        });
+        .map((day) => ({
+          date: new Date(day.date),
+          open: Number(day.open),
+          high: Number(day.high),
+          low: Number(day.low),
+          close: Number(day.close),
+          volume: Number(day.volume),
+        }));
     },
     HISTORY_CACHE_TTL
   );
@@ -330,33 +340,20 @@ export async function searchStocks(
 ): Promise<StockSearchResult[]> {
   const normalizedQuery = query.trim();
 
-  if (normalizedQuery.length < 1) {
+  if (!normalizedQuery) {
     return [];
   }
 
-  const cacheKey = `search:${normalizedQuery.toLowerCase()}`;
-
   return getCachedData(
-    cacheKey,
+    `search:${normalizedQuery.toLowerCase()}`,
     async () => {
-      const result = await withYahooRetry(() =>
+      const result = await runYahooRequest(() =>
         yahooFinance.search(normalizedQuery)
       );
 
-      /*
-       * Yahoo returns multiple result types:
-       *
-       * stocks
-       * ETFs
-       * crypto
-       * indexes
-       * news
-       *
-       * We only want equities for Pulse.
-       */
       const quotes = result.quotes ?? [];
 
-      const stocks = quotes
+      return quotes
         .filter((item) => {
           return (
             item.quoteType === "EQUITY" &&
@@ -365,21 +362,60 @@ export async function searchStocks(
           );
         })
         .slice(0, 8)
-        .map((item) => {
-          return {
-            symbol: item.symbol,
+        .map((item): StockSearchResult => {
+          /*
+           * The .filter() above already confirmed
+           * item.symbol is a non-empty string, but
+           * that narrowing doesn't carry into this
+           * separate .map() callback — yahoo-finance2's
+           * quote union still types these loosely here
+           * (symbol as unknown, exchDisp as an object
+           * type), so we validate/coerce explicitly
+           * rather than trusting the inferred type.
+           */
 
-            companyName:
-              item.longname ??
-              item.shortname ??
-              item.symbol,
+          const symbol = String(item.symbol);
 
-            exchange: item.exchDisp ?? null,
-          };
+          const companyName =
+            typeof item.longname === "string" &&
+            item.longname.length > 0
+              ? item.longname
+              : typeof item.shortname === "string" &&
+                item.shortname.length > 0
+                ? item.shortname
+                : symbol;
+
+          const exchange =
+            typeof item.exchDisp === "string"
+              ? item.exchDisp
+              : null;
+
+          return { symbol, companyName, exchange };
         });
-
-      return stocks;
     },
     SEARCH_CACHE_TTL
+  );
+}
+
+/* ========================================
+   ERROR IDENTIFICATION
+======================================== */
+
+export function isYahooUnavailableError(
+  error: unknown
+): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error);
+
+  const normalizedMessage = message.toLowerCase();
+
+  return (
+    normalizedMessage.includes("429") ||
+    normalizedMessage.includes("too many requests") ||
+    normalizedMessage.includes("failed to get crumb") ||
+    normalizedMessage.includes("rate limit") ||
+    normalizedMessage.includes("rate-limited")
   );
 }

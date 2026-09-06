@@ -31,6 +31,131 @@ export interface SinceLastCheckedResult {
 }
 
 
+/* ========================================
+   SHARED SNAPSHOT COLUMNS + MAPPER
+
+   StockSnapshot (snapshotService.ts) has
+   grown fields over time — sectorPerformance,
+   newsImportance, newsType, signals,
+   newsSummary, newsSource, newsUrl were all
+   added after this file's queries were first
+   written, so they were silently missing here.
+
+   Centralizing the column list and the row
+   mapping in one place means adding a field
+   to StockSnapshot only requires updating it
+   here once, instead of independently in every
+   query in this file.
+======================================== */
+
+const SNAPSHOT_COLUMNS = `
+  id,
+  symbol,
+  price,
+  price_change,
+  volume,
+  average_volume,
+  volume_ratio,
+  volatility_change,
+  sector_performance,
+  news_importance,
+  news_type,
+  meaningfulness_score,
+  severity,
+  reasons,
+  signals,
+  news_headline,
+  news_summary,
+  news_source,
+  news_url,
+  currency,
+  created_at
+`;
+
+
+function mapRowToSnapshot(row: any): StockSnapshot {
+
+  return {
+
+    id: row.id,
+
+    symbol: row.symbol,
+
+    price: Number(row.price),
+
+    priceChange:
+      row.price_change !== null
+        ? Number(row.price_change)
+        : null,
+
+    volume:
+      row.volume !== null
+        ? Number(row.volume)
+        : null,
+
+    averageVolume:
+      row.average_volume !== null
+        ? Number(row.average_volume)
+        : null,
+
+    volumeRatio:
+      row.volume_ratio !== null
+        ? Number(row.volume_ratio)
+        : null,
+
+    volatilityChange:
+      row.volatility_change !== null
+        ? Number(row.volatility_change)
+        : null,
+
+    sectorPerformance:
+      row.sector_performance !== null
+        ? Number(row.sector_performance)
+        : null,
+
+    newsImportance:
+      Number(row.news_importance ?? 0),
+
+    newsType:
+      row.news_type ?? "none",
+
+    meaningfulnessScore:
+      row.meaningfulness_score !== null
+        ? Number(row.meaningfulness_score)
+        : null,
+
+    severity:
+      row.severity,
+
+    reasons:
+      row.reasons ?? [],
+
+    signals:
+      row.signals ?? null,
+
+    newsHeadline:
+      row.news_headline,
+
+    newsSummary:
+      row.news_summary,
+
+    newsSource:
+      row.news_source,
+
+    newsUrl:
+      row.news_url,
+
+    currency:
+      row.currency,
+
+    createdAt:
+      row.created_at,
+
+  };
+
+}
+
+
 function getSeverityRank(
   severity: string | null
 ): number {
@@ -57,153 +182,26 @@ function getSeverityRank(
 }
 
 
-export async function getSinceLastChecked(
-  symbol: string
-): Promise<SinceLastCheckedResult> {
+/* ========================================
+   CHANGE DETECTION
 
-  const normalizedSymbol =
-    symbol.trim().toUpperCase();
+   Shared by both entry points below so the
+   comparison rules only live in one place.
+======================================== */
 
-
-  const result = await db.query(
-    `
-      SELECT
-        id,
-        symbol,
-        price,
-        price_change,
-
-        volume,
-        average_volume,
-        volume_ratio,
-
-        volatility_change,
-
-        meaningfulness_score,
-        severity,
-        reasons,
-
-        news_headline,
-
-        currency,
-
-        created_at
-
-      FROM stock_snapshots
-
-      WHERE symbol = $1
-
-      ORDER BY created_at DESC
-
-      LIMIT 2;
-    `,
-    [normalizedSymbol]
-  );
-
-
-  if (result.rows.length === 0) {
-
-    return {
-      symbol: normalizedSymbol,
-
-      previousSnapshot: null,
-
-      currentSnapshot: null,
-
-      changes: []
-    };
-
-  }
-
-
-  const snapshots =
-    result.rows.map((row) => ({
-
-      id: row.id,
-
-      symbol: row.symbol,
-
-      price: Number(row.price),
-
-      priceChange:
-        row.price_change !== null
-          ? Number(row.price_change)
-          : null,
-
-      volume:
-        row.volume !== null
-          ? Number(row.volume)
-          : null,
-
-      averageVolume:
-        row.average_volume !== null
-          ? Number(row.average_volume)
-          : null,
-
-      volumeRatio:
-        row.volume_ratio !== null
-          ? Number(row.volume_ratio)
-          : null,
-
-      volatilityChange:
-        row.volatility_change !== null
-          ? Number(row.volatility_change)
-          : null,
-
-      meaningfulnessScore:
-        row.meaningfulness_score,
-
-      severity:
-        row.severity,
-
-      reasons:
-        row.reasons,
-
-      newsHeadline:
-        row.news_headline,
-
-      currency:
-        row.currency,
-
-      createdAt:
-        row.created_at
-
-    })) as StockSnapshot[];
-
-
-  const currentSnapshot =
-    snapshots[0];
-
-
-  const previousSnapshot =
-    snapshots[1] ?? null;
-
+function detectChanges(
+  currentSnapshot: StockSnapshot,
+  previousSnapshot: StockSnapshot
+): SnapshotChange[] {
 
   const changes: SnapshotChange[] = [];
-
-
-  // If there is no previous snapshot,
-  // there is nothing to compare yet.
-
-  if (!previousSnapshot) {
-
-    return {
-      symbol: normalizedSymbol,
-      previousSnapshot: null,
-      currentSnapshot,
-      changes: []
-    };
-
-  }
 
 
   // --------------------------------
   // PRICE CHANGE
   // --------------------------------
 
-  if (
-    previousSnapshot.price !== 0
-  ) {
+  if (previousSnapshot.price !== 0) {
 
     const priceDifferencePercent =
       (
@@ -414,13 +412,84 @@ export async function getSinceLastChecked(
   }
 
 
-  // Sort most important changes first
+  // Most important changes first
 
   changes.sort(
     (a, b) =>
-      b.importance -
-      a.importance
+      b.importance - a.importance
   );
+
+
+  return changes;
+
+}
+
+
+export async function getSinceLastChecked(
+  symbol: string
+): Promise<SinceLastCheckedResult> {
+
+  const normalizedSymbol =
+    symbol.trim().toUpperCase();
+
+
+  const result = await db.query(
+    `
+      SELECT
+        ${SNAPSHOT_COLUMNS}
+
+      FROM stock_snapshots
+
+      WHERE symbol = $1
+
+      ORDER BY created_at DESC
+
+      LIMIT 2;
+    `,
+    [normalizedSymbol]
+  );
+
+
+  if (result.rows.length === 0) {
+
+    return {
+      symbol: normalizedSymbol,
+
+      previousSnapshot: null,
+
+      currentSnapshot: null,
+
+      changes: []
+    };
+
+  }
+
+
+  const snapshots =
+    result.rows.map(mapRowToSnapshot);
+
+
+  const currentSnapshot =
+    snapshots[0];
+
+
+  const previousSnapshot =
+    snapshots[1] ?? null;
+
+
+  // If there is no previous snapshot,
+  // there is nothing to compare yet.
+
+  if (!previousSnapshot) {
+
+    return {
+      symbol: normalizedSymbol,
+      previousSnapshot: null,
+      currentSnapshot,
+      changes: []
+    };
+
+  }
 
 
   return {
@@ -431,7 +500,10 @@ export async function getSinceLastChecked(
 
     currentSnapshot,
 
-    changes
+    changes: detectChanges(
+      currentSnapshot,
+      previousSnapshot
+    )
 
   };
 
@@ -475,26 +547,7 @@ export async function getChangesSinceLastChecked(
     await db.query(
       `
         SELECT
-          id,
-          symbol,
-          price,
-          price_change,
-
-          volume,
-          average_volume,
-          volume_ratio,
-
-          volatility_change,
-
-          meaningfulness_score,
-          severity,
-          reasons,
-
-          news_headline,
-
-          currency,
-
-          created_at
+          ${SNAPSHOT_COLUMNS}
 
         FROM stock_snapshots
 
@@ -523,62 +576,8 @@ export async function getChangesSinceLastChecked(
   }
 
 
-  const currentRow =
-    currentResult.rows[0];
-
-
-  const currentSnapshot: StockSnapshot = {
-
-    id: currentRow.id,
-
-    symbol: currentRow.symbol,
-
-    price: Number(currentRow.price),
-
-    priceChange:
-      currentRow.price_change !== null
-        ? Number(currentRow.price_change)
-        : null,
-
-    volume:
-      currentRow.volume !== null
-        ? Number(currentRow.volume)
-        : null,
-
-    averageVolume:
-      currentRow.average_volume !== null
-        ? Number(currentRow.average_volume)
-        : null,
-
-    volumeRatio:
-      currentRow.volume_ratio !== null
-        ? Number(currentRow.volume_ratio)
-        : null,
-
-    volatilityChange:
-      currentRow.volatility_change !== null
-        ? Number(currentRow.volatility_change)
-        : null,
-
-    meaningfulnessScore:
-      currentRow.meaningfulness_score,
-
-    severity:
-      currentRow.severity,
-
-    reasons:
-      currentRow.reasons,
-
-    newsHeadline:
-      currentRow.news_headline,
-
-    currency:
-      currentRow.currency,
-
-    createdAt:
-      currentRow.created_at
-
-  };
+  const currentSnapshot =
+    mapRowToSnapshot(currentResult.rows[0]);
 
 
   // If the user has never checked this stock,
@@ -606,26 +605,7 @@ export async function getChangesSinceLastChecked(
     await db.query(
       `
         SELECT
-          id,
-          symbol,
-          price,
-          price_change,
-
-          volume,
-          average_volume,
-          volume_ratio,
-
-          volatility_change,
-
-          meaningfulness_score,
-          severity,
-          reasons,
-
-          news_headline,
-
-          currency,
-
-          created_at
+          ${SNAPSHOT_COLUMNS}
 
         FROM stock_snapshots
 
@@ -660,277 +640,8 @@ export async function getChangesSinceLastChecked(
   }
 
 
-  const previousRow =
-    previousResult.rows[0];
-
-
-  const previousSnapshot: StockSnapshot = {
-
-    id: previousRow.id,
-
-    symbol: previousRow.symbol,
-
-    price: Number(previousRow.price),
-
-    priceChange:
-      previousRow.price_change !== null
-        ? Number(previousRow.price_change)
-        : null,
-
-    volume:
-      previousRow.volume !== null
-        ? Number(previousRow.volume)
-        : null,
-
-    averageVolume:
-      previousRow.average_volume !== null
-        ? Number(previousRow.average_volume)
-        : null,
-
-    volumeRatio:
-      previousRow.volume_ratio !== null
-        ? Number(previousRow.volume_ratio)
-        : null,
-
-    volatilityChange:
-      previousRow.volatility_change !== null
-        ? Number(previousRow.volatility_change)
-        : null,
-
-    meaningfulnessScore:
-      previousRow.meaningfulness_score,
-
-    severity:
-      previousRow.severity,
-
-    reasons:
-      previousRow.reasons,
-
-    newsHeadline:
-      previousRow.news_headline,
-
-    currency:
-      previousRow.currency,
-
-    createdAt:
-      previousRow.created_at
-
-  };
-
-
-  const changes: SnapshotChange[] = [];
-
-
-  // PRICE
-
-  if (previousSnapshot.price !== 0) {
-
-    const priceDifferencePercent =
-      (
-        (
-          currentSnapshot.price -
-          previousSnapshot.price
-        )
-        /
-        previousSnapshot.price
-      ) * 100;
-
-
-    if (
-      Math.abs(priceDifferencePercent) >= 0.5
-    ) {
-
-      const direction =
-        priceDifferencePercent > 0
-          ? "increased"
-          : "decreased";
-
-
-      changes.push({
-
-        type: "price",
-
-        message:
-          `Price ${direction} by ` +
-          `${Math.abs(
-            priceDifferencePercent
-          ).toFixed(2)}% ` +
-          `since you last checked.`,
-
-        importance:
-          Math.min(
-            Math.round(
-              Math.abs(
-                priceDifferencePercent
-              ) * 20
-            ),
-            100
-          )
-
-      });
-
-    }
-
-  }
-
-
-  // VOLUME
-
-  if (
-    previousSnapshot.volumeRatio !== null &&
-    currentSnapshot.volumeRatio !== null
-  ) {
-
-    const volumeDifference =
-      currentSnapshot.volumeRatio -
-      previousSnapshot.volumeRatio;
-
-
-    if (
-      Math.abs(volumeDifference) >= 0.5
-    ) {
-
-      const direction =
-        volumeDifference > 0
-          ? "increased"
-          : "decreased";
-
-
-      changes.push({
-
-        type: "volume",
-
-        message:
-          `Trading activity ${direction} significantly ` +
-          `since you last checked.`,
-
-        importance:
-          Math.min(
-            Math.round(
-              Math.abs(volumeDifference) * 50
-            ),
-            100
-          )
-
-      });
-
-    }
-
-  }
-
-
-  // MEANINGFULNESS
-
-  if (
-    previousSnapshot.meaningfulnessScore !== null &&
-    currentSnapshot.meaningfulnessScore !== null
-  ) {
-
-    const scoreDifference =
-      currentSnapshot.meaningfulnessScore -
-      previousSnapshot.meaningfulnessScore;
-
-
-    if (
-      Math.abs(scoreDifference) >= 10
-    ) {
-
-      const direction =
-        scoreDifference > 0
-          ? "increased"
-          : "decreased";
-
-
-      changes.push({
-
-        type: "meaningfulness",
-
-        message:
-          `Pulse importance ${direction} from ` +
-          `${previousSnapshot.meaningfulnessScore} ` +
-          `to ${currentSnapshot.meaningfulnessScore}.`,
-
-        importance:
-          Math.min(
-            Math.abs(scoreDifference),
-            100
-          )
-
-      });
-
-    }
-
-  }
-
-
-  // SEVERITY
-
-  const previousSeverityRank =
-    getSeverityRank(
-      previousSnapshot.severity
-    );
-
-
-  const currentSeverityRank =
-    getSeverityRank(
-      currentSnapshot.severity
-    );
-
-
-  if (
-    previousSeverityRank !==
-    currentSeverityRank
-  ) {
-
-    changes.push({
-
-      type: "severity",
-
-      message:
-        `Severity changed from ` +
-        `${previousSnapshot.severity} ` +
-        `to ${currentSnapshot.severity}.`,
-
-      importance:
-        Math.abs(
-          currentSeverityRank -
-          previousSeverityRank
-        ) * 25
-
-    });
-
-  }
-
-
-  // NEWS
-
-  if (
-    currentSnapshot.newsHeadline &&
-    currentSnapshot.newsHeadline !==
-      previousSnapshot.newsHeadline
-  ) {
-
-    changes.push({
-
-      type: "news",
-
-      message:
-        `New market news detected: ` +
-        `${currentSnapshot.newsHeadline}`,
-
-      importance: 70
-
-    });
-
-  }
-
-
-  // Most important changes first
-
-  changes.sort(
-    (a, b) =>
-      b.importance - a.importance
-  );
+  const previousSnapshot =
+    mapRowToSnapshot(previousResult.rows[0]);
 
 
   return {
@@ -941,7 +652,10 @@ export async function getChangesSinceLastChecked(
 
     currentSnapshot,
 
-    changes
+    changes: detectChanges(
+      currentSnapshot,
+      previousSnapshot
+    )
 
   };
 
