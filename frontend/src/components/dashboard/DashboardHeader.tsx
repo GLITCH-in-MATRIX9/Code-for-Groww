@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
 
-function DashboardHeader() {
+interface DashboardHeaderProps {
+  onAddStock?: () => void;
+}
+
+function DashboardHeader({ onAddStock }: DashboardHeaderProps = {}) {
   return (
     <header
       className="
@@ -86,6 +90,30 @@ function DashboardHeader() {
           Live
         </div>
 
+
+        {/* ADD STOCK */}
+
+        {onAddStock && (
+          <button
+            type="button"
+            onClick={onAddStock}
+            className="
+              rounded-full
+              border
+              border-blue-400/20
+              bg-blue-500/10
+              px-4
+              py-1.5
+              text-xs
+              font-light
+              text-blue-200
+              transition
+              hover:bg-blue-500/20
+            "
+          >
+            + Add Stock
+          </button>
+        )}
 
         {/* PROFILE */}
 

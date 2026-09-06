@@ -7,9 +7,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
-  Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -961,9 +958,9 @@ function StockDetails({ symbol }: StockDetailsProps) {
                   labelStyle={{
                     color: "rgba(255,255,255,0.45)",
                   }}
-                  formatter={(value: number) => [
+                  formatter={(value) => [
                     formatPrice(
-                      value,
+                      typeof value === "number" ? value : 0,
                       stock.currency,
                     ),
                     "Price",
@@ -1084,8 +1081,8 @@ function StockDetails({ symbol }: StockDetailsProps) {
                         "1px solid rgba(255,255,255,0.08)",
                       borderRadius: "12px",
                     }}
-                    formatter={(value: number) => [
-                      formatCompactNumber(value),
+                    formatter={(value) => [
+                      formatCompactNumber(typeof value === "number" ? value : 0),
                       "Volume",
                     ]}
                   />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import AIUnavailableState from "./AIUnavailableState";
-import MeaningfulnessBreakdown from "./MeaningfulnessBreakdown";
+import MeaningfulnessBreakdownContainer from "./MeaningfulnessBreakdownContainer";
 
 interface Snapshot {
   id: number;
@@ -119,17 +119,6 @@ function getSeverityGuidance(severity: string) {
   Clamps each estimate to 0–100 so the bars never overflow.
   Swap this out once /since-last-checked returns scoreBreakdown directly.
 */
-function estimateScoreBreakdown(stock: Snapshot) {
-  const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
-
-  return [
-    { label: "Price Movement", value: clamp(Math.abs(stock.priceChange) * 12) },
-    { label: "Volume Anomaly", value: clamp(stock.volumeRatio * 40) },
-    { label: "Volatility", value: clamp(Math.abs(stock.volatilityChange) * 6) },
-    { label: "News Impact", value: stock.newsHeadline ? 75 : 20 },
-  ];
-}
-
 function StockPulse({ symbol }: StockPulseProps) {
   const [data, setData] = useState<ChangeResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -244,8 +233,6 @@ function StockPulse({ symbol }: StockPulseProps) {
       : stock.meaningfulnessScore >= 40
         ? "text-yellow-300"
         : "text-blue-300";
-
-  const breakdownSignals = stock.scoreBreakdown ?? estimateScoreBreakdown(stock);
 
   const aiAvailable = stock.aiExplanationAvailable ?? true;
 
@@ -442,14 +429,7 @@ function StockPulse({ symbol }: StockPulseProps) {
 
             {showBreakdown && (
               <div className="mt-5">
-                <MeaningfulnessBreakdown
-                  score={stock.latestSnapshot?.meaningfulnessScore ?? 0}
-                  priceChange={stock.latestSnapshot?.priceChange ?? 0}
-                  volumeRatio={stock.latestSnapshot?.volumeRatio ?? 0}
-                  volatilityChange={
-                          stock.latestSnapshot?.volatilityChange ?? 0
-                        }
-                />
+                <MeaningfulnessBreakdownContainer symbol={symbol} />
               </div>
             )}
           </div>

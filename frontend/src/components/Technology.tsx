@@ -64,7 +64,7 @@ function Technology() {
   const leftContentY = useTransform(scrollYProgress, [0, 1], [0, -40]);
 
   // Shared, quiet easing — the one "signature" motion curve for this section.
-  const ease = [0.16, 1, 0.3, 1];
+  const ease = [0.16, 1, 0.3, 1] as const;
 
   return (
     <section

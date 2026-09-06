@@ -1,0 +1,370 @@
+diff --git a/frontend/src/components/Idea.tsx b/frontend/src/components/Idea.tsx
+index 4d45f24..9f3e234 100644
+--- a/frontend/src/components/Idea.tsx
++++ b/frontend/src/components/Idea.tsx
+@@ -1,6 +1,6 @@
+-import { motion } from "framer-motion";
++import { motion, type Variants } from "framer-motion";
+ 
+-const fadeUp = {
++const fadeUp: Variants = {
+   hidden: { opacity: 0, y: 28 },
+   visible: {
+     opacity: 1,
+diff --git a/frontend/src/components/SinceLastChecked.tsx b/frontend/src/components/SinceLastChecked.tsx
+index 0030dd5..6fb9436 100644
+--- a/frontend/src/components/SinceLastChecked.tsx
++++ b/frontend/src/components/SinceLastChecked.tsx
+@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
+ 
+ function SinceLastChecked() {
+   // Same signature ease used across the site's motion system.
+-  const ease = [0.16, 1, 0.3, 1];
++  const ease = [0.16, 1, 0.3, 1] as const;
+ 
+   return (
+     <section
+diff --git a/frontend/src/components/Technology.tsx b/frontend/src/components/Technology.tsx
+index de38b64..37a8cac 100644
+--- a/frontend/src/components/Technology.tsx
++++ b/frontend/src/components/Technology.tsx
+@@ -64,7 +64,7 @@ function Technology() {
+   const leftContentY = useTransform(scrollYProgress, [0, 1], [0, -40]);
+ 
+   // Shared, quiet easing — the one "signature" motion curve for this section.
+-  const ease = [0.16, 1, 0.3, 1];
++  const ease = [0.16, 1, 0.3, 1] as const;
+ 
+   return (
+     <section
+diff --git a/frontend/src/components/dashboard/DashboardHeader.tsx b/frontend/src/components/dashboard/DashboardHeader.tsx
+index 860910a..498a05b 100644
+--- a/frontend/src/components/dashboard/DashboardHeader.tsx
++++ b/frontend/src/components/dashboard/DashboardHeader.tsx
+@@ -1,6 +1,10 @@
+ import { Link } from "react-router-dom";
+ 
+-function DashboardHeader() {
++interface DashboardHeaderProps {
++  onAddStock?: () => void;
++}
++
++function DashboardHeader({ onAddStock }: DashboardHeaderProps = {}) {
+   return (
+     <header
+       className="
+@@ -87,6 +91,30 @@ function DashboardHeader() {
+         </div>
+ 
+ 
++        {/* ADD STOCK */}
++
++        {onAddStock && (
++          <button
++            type="button"
++            onClick={onAddStock}
++            className="
++              rounded-full
++              border
++              border-blue-400/20
++              bg-blue-500/10
++              px-4
++              py-1.5
++              text-xs
++              font-light
++              text-blue-200
++              transition
++              hover:bg-blue-500/20
++            "
++          >
++            + Add Stock
++          </button>
++        )}
++
+         {/* PROFILE */}
+ 
+         <div
+diff --git a/frontend/src/components/dashboard/PulseOverview.tsx b/frontend/src/components/dashboard/PulseOverview.tsx
+index fc5af26..3b1e311 100644
+--- a/frontend/src/components/dashboard/PulseOverview.tsx
++++ b/frontend/src/components/dashboard/PulseOverview.tsx
+@@ -107,32 +107,6 @@ interface PulseOverviewProps {
+ }
+ 
+ 
+-/* ========================================
+-   SEVERITY MAPPING
+-======================================== */
+-
+-function bucketSeverity(severity: string) {
+-  const normalized = severity.toLowerCase();
+-
+-  if (normalized === "critical") {
+-    return "critical";
+-  }
+-
+-  if (normalized === "high") {
+-    return "high";
+-  }
+-
+-  if (
+-    normalized === "medium" ||
+-    normalized === "notable"
+-  ) {
+-    return "notable";
+-  }
+-
+-  return "stable";
+-}
+-
+-
+ /* ========================================
+    NEWS TAG LEVEL
+ ======================================== */
+@@ -210,19 +184,6 @@ function PulseOverview({
+     useState<StockSnapshot[]>([]);
+ 
+ 
+-  const [attentionCounts, setAttentionCounts] =
+-    useState<AttentionSummaryData>({
+-      critical: 0,
+-      high: 0,
+-      notable: 0,
+-      stable: 0,
+-    });
+-
+-
+-  const [aiBriefing, setAiBriefing] =
+-    useState<string>("");
+-
+-
+   const [newsArticles, setNewsArticles] =
+     useState<NewsArticle[]>([]);
+ 
+@@ -249,15 +210,6 @@ function PulseOverview({
+ 
+         setNewsArticles([]);
+ 
+-        setAttentionCounts({
+-          critical: 0,
+-          high: 0,
+-          notable: 0,
+-          stable: 0,
+-        });
+-
+-        setAiBriefing("");
+-
+         return;
+       }
+ 
+@@ -288,34 +240,6 @@ function PulseOverview({
+           await response.json();
+ 
+ 
+-        /* ========================================
+-           ATTENTION SUMMARY
+-        ======================================== */
+-
+-        setAttentionCounts({
+-          critical:
+-            data.attentionSummary?.critical ?? 0,
+-
+-          high:
+-            data.attentionSummary?.high ?? 0,
+-
+-          notable:
+-            data.attentionSummary?.notable ?? 0,
+-
+-          stable:
+-            data.attentionSummary?.stable ?? 0,
+-        });
+-
+-
+-        /* ========================================
+-           AI BRIEFING
+-        ======================================== */
+-
+-        setAiBriefing(
+-          data.aiBriefing ?? ""
+-        );
+-
+-
+         /* ========================================
+            STOCK SNAPSHOTS
+         ======================================== */
+@@ -511,31 +435,6 @@ function PulseOverview({
+   }, [watchlist]);
+ 
+ 
+-  /* ========================================
+-     PERFORMANCE COUNTS
+-  ======================================== */
+-
+-  const gainers =
+-    snapshots.filter(
+-      (stock) =>
+-        stock.priceChange > 0
+-    ).length;
+-
+-
+-  const losers =
+-    snapshots.filter(
+-      (stock) =>
+-        stock.priceChange < 0
+-    ).length;
+-
+-
+-  const unchanged =
+-    snapshots.filter(
+-      (stock) =>
+-        stock.priceChange === 0
+-    ).length;
+-
+-
+   /* ========================================
+      TOP GAINER
+   ======================================== */
+@@ -741,19 +640,12 @@ function PulseOverview({
+ 
+                 {/* ATTENTION SUMMARY */}
+ 
+-                <AttentionSummary
+-                  critical={attentionCounts.critical}
+-                  high={attentionCounts.high}
+-                  notable={attentionCounts.notable}
+-                  stable={attentionCounts.stable}
+-                />
++                <AttentionSummary />
+ 
+ 
+                 {/* AI BRIEFING */}
+ 
+-                <PulseAIBriefing
+-                  briefing={aiBriefing}
+-                />
++                <PulseAIBriefing />
+ 
+ 
+                 {/* BIGGEST MOVERS */}
+@@ -808,12 +700,7 @@ function PulseOverview({
+                   "
+                 >
+ 
+-                  <WatchlistPerformanceChart
+-                    totalStocks={snapshots.length}
+-                    gainers={gainers}
+-                    losers={losers}
+-                    unchanged={unchanged}
+-                  />
++                  <WatchlistPerformanceChart />
+ 
+ 
+                   <MarketSnapshot />
+diff --git a/frontend/src/components/dashboard/StockDetails.tsx b/frontend/src/components/dashboard/StockDetails.tsx
+index 6b9b086..cf41955 100644
+--- a/frontend/src/components/dashboard/StockDetails.tsx
++++ b/frontend/src/components/dashboard/StockDetails.tsx
+@@ -7,9 +7,6 @@ import {
+   BarChart,
+   CartesianGrid,
+   Cell,
+-  Legend,
+-  Line,
+-  LineChart,
+   ReferenceLine,
+   ResponsiveContainer,
+   Tooltip,
+@@ -961,9 +958,9 @@ function StockDetails({ symbol }: StockDetailsProps) {
+                   labelStyle={{
+                     color: "rgba(255,255,255,0.45)",
+                   }}
+-                  formatter={(value: number) => [
++                  formatter={(value) => [
+                     formatPrice(
+-                      value,
++                      typeof value === "number" ? value : 0,
+                       stock.currency,
+                     ),
+                     "Price",
+@@ -1084,8 +1081,8 @@ function StockDetails({ symbol }: StockDetailsProps) {
+                         "1px solid rgba(255,255,255,0.08)",
+                       borderRadius: "12px",
+                     }}
+-                    formatter={(value: number) => [
+-                      formatCompactNumber(value),
++                    formatter={(value) => [
++                      formatCompactNumber(typeof value === "number" ? value : 0),
+                       "Volume",
+                     ]}
+                   />
+diff --git a/frontend/src/components/dashboard/StockPulse.tsx b/frontend/src/components/dashboard/StockPulse.tsx
+index 287dc81..8e2e9a4 100644
+--- a/frontend/src/components/dashboard/StockPulse.tsx
++++ b/frontend/src/components/dashboard/StockPulse.tsx
+@@ -1,7 +1,7 @@
+ import { useEffect, useState } from "react";
+ 
+ import AIUnavailableState from "./AIUnavailableState";
+-import MeaningfulnessBreakdown from "./MeaningfulnessBreakdown";
++import MeaningfulnessBreakdownContainer from "./MeaningfulnessBreakdownContainer";
+ 
+ interface Snapshot {
+   id: number;
+@@ -119,17 +119,6 @@ function getSeverityGuidance(severity: string) {
+   Clamps each estimate to 0–100 so the bars never overflow.
+   Swap this out once /since-last-checked returns scoreBreakdown directly.
+ */
+-function estimateScoreBreakdown(stock: Snapshot) {
+-  const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+-
+-  return [
+-    { label: "Price Movement", value: clamp(Math.abs(stock.priceChange) * 12) },
+-    { label: "Volume Anomaly", value: clamp(stock.volumeRatio * 40) },
+-    { label: "Volatility", value: clamp(Math.abs(stock.volatilityChange) * 6) },
+-    { label: "News Impact", value: stock.newsHeadline ? 75 : 20 },
+-  ];
+-}
+-
+ function StockPulse({ symbol }: StockPulseProps) {
+   const [data, setData] = useState<ChangeResponse | null>(null);
+   const [loading, setLoading] = useState(false);
+@@ -245,8 +234,6 @@ function StockPulse({ symbol }: StockPulseProps) {
+         ? "text-yellow-300"
+         : "text-blue-300";
+ 
+-  const breakdownSignals = stock.scoreBreakdown ?? estimateScoreBreakdown(stock);
+-
+   const aiAvailable = stock.aiExplanationAvailable ?? true;
+ 
+   return (
+@@ -442,14 +429,7 @@ function StockPulse({ symbol }: StockPulseProps) {
+ 
+             {showBreakdown && (
+               <div className="mt-5">
+-                <MeaningfulnessBreakdown
+-                  score={stock.latestSnapshot?.meaningfulnessScore ?? 0}
+-                  priceChange={stock.latestSnapshot?.priceChange ?? 0}
+-                  volumeRatio={stock.latestSnapshot?.volumeRatio ?? 0}
+-                  volatilityChange={
+-                          stock.latestSnapshot?.volatilityChange ?? 0
+-                        }
+-                />
++                <MeaningfulnessBreakdownContainer symbol={symbol} />
+               </div>
+             )}
+           </div>
+diff --git a/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx b/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
+index dda8b8f..5ce6fca 100644
+--- a/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
++++ b/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
+@@ -700,8 +700,8 @@ function WatchlistPerformanceChart() {
+                     color: colors.stroke
+                   }}
+ 
+-                  formatter={(value: number) => [
+-                    formatCompact(value),
++                  formatter={(value) => [
++                    formatCompact(typeof value === "number" ? value : 0),
+                     "Value"
+                   ]}
+                 />

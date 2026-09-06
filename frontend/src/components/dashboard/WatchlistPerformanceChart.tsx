@@ -700,8 +700,8 @@ function WatchlistPerformanceChart() {
                     color: colors.stroke
                   }}
 
-                  formatter={(value: number) => [
-                    formatCompact(value),
+                  formatter={(value) => [
+                    formatCompact(typeof value === "number" ? value : 0),
                     "Value"
                   ]}
                 />

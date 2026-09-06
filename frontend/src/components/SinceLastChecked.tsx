@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 function SinceLastChecked() {
   // Same signature ease used across the site's motion system.
-  const ease = [0.16, 1, 0.3, 1];
+  const ease = [0.16, 1, 0.3, 1] as const;
 
   return (
     <section

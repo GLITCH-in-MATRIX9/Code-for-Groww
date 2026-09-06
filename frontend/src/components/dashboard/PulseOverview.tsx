@@ -108,32 +108,6 @@ interface PulseOverviewProps {
 
 
 /* ========================================
-   SEVERITY MAPPING
-======================================== */
-
-function bucketSeverity(severity: string) {
-  const normalized = severity.toLowerCase();
-
-  if (normalized === "critical") {
-    return "critical";
-  }
-
-  if (normalized === "high") {
-    return "high";
-  }
-
-  if (
-    normalized === "medium" ||
-    normalized === "notable"
-  ) {
-    return "notable";
-  }
-
-  return "stable";
-}
-
-
-/* ========================================
    NEWS TAG LEVEL
 ======================================== */
 
@@ -210,19 +184,6 @@ function PulseOverview({
     useState<StockSnapshot[]>([]);
 
 
-  const [attentionCounts, setAttentionCounts] =
-    useState<AttentionSummaryData>({
-      critical: 0,
-      high: 0,
-      notable: 0,
-      stable: 0,
-    });
-
-
-  const [aiBriefing, setAiBriefing] =
-    useState<string>("");
-
-
   const [newsArticles, setNewsArticles] =
     useState<NewsArticle[]>([]);
 
@@ -248,15 +209,6 @@ function PulseOverview({
         setSnapshots([]);
 
         setNewsArticles([]);
-
-        setAttentionCounts({
-          critical: 0,
-          high: 0,
-          notable: 0,
-          stable: 0,
-        });
-
-        setAiBriefing("");
 
         return;
       }
@@ -286,34 +238,6 @@ function PulseOverview({
 
         const data: DashboardResponse =
           await response.json();
-
-
-        /* ========================================
-           ATTENTION SUMMARY
-        ======================================== */
-
-        setAttentionCounts({
-          critical:
-            data.attentionSummary?.critical ?? 0,
-
-          high:
-            data.attentionSummary?.high ?? 0,
-
-          notable:
-            data.attentionSummary?.notable ?? 0,
-
-          stable:
-            data.attentionSummary?.stable ?? 0,
-        });
-
-
-        /* ========================================
-           AI BRIEFING
-        ======================================== */
-
-        setAiBriefing(
-          data.aiBriefing ?? ""
-        );
 
 
         /* ========================================
@@ -509,31 +433,6 @@ function PulseOverview({
     loadDashboardData();
 
   }, [watchlist]);
-
-
-  /* ========================================
-     PERFORMANCE COUNTS
-  ======================================== */
-
-  const gainers =
-    snapshots.filter(
-      (stock) =>
-        stock.priceChange > 0
-    ).length;
-
-
-  const losers =
-    snapshots.filter(
-      (stock) =>
-        stock.priceChange < 0
-    ).length;
-
-
-  const unchanged =
-    snapshots.filter(
-      (stock) =>
-        stock.priceChange === 0
-    ).length;
 
 
   /* ========================================
@@ -741,19 +640,12 @@ function PulseOverview({
 
                 {/* ATTENTION SUMMARY */}
 
-                <AttentionSummary
-                  critical={attentionCounts.critical}
-                  high={attentionCounts.high}
-                  notable={attentionCounts.notable}
-                  stable={attentionCounts.stable}
-                />
+                <AttentionSummary />
 
 
                 {/* AI BRIEFING */}
 
-                <PulseAIBriefing
-                  briefing={aiBriefing}
-                />
+                <PulseAIBriefing />
 
 
                 {/* BIGGEST MOVERS */}
@@ -808,12 +700,7 @@ function PulseOverview({
                   "
                 >
 
-                  <WatchlistPerformanceChart
-                    totalStocks={snapshots.length}
-                    gainers={gainers}
-                    losers={losers}
-                    unchanged={unchanged}
-                  />
+                  <WatchlistPerformanceChart />
 
 
                   <MarketSnapshot />
