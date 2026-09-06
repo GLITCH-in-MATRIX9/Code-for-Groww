@@ -55,7 +55,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://code-for-groww.vercel.app/"
+      "https://code-for-groww.vercel.app"
     ],
     credentials: true
   })
