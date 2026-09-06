@@ -56,7 +56,8 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://code-for-groww.vercel.app/"
-    ]
+    ],
+    credentials: true
   })
 );
 
