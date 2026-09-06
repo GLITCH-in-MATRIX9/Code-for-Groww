@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 
 interface AttentionSummaryData {
   critical: number;
@@ -28,7 +29,7 @@ function AttentionSummary() {
         setError(null);
 
         const response = await fetch(
-          "http://localhost:3001/api/dashboard"
+          `${API_BASE_URL}/api/dashboard`
         );
 
         if (!response.ok) {

@@ -3,6 +3,8 @@ import {
   useState
 } from "react";
 
+import { API_BASE_URL } from "../../config/apiBaseUrl";
+
 
 interface MarketIndex {
 
@@ -68,7 +70,7 @@ function MarketSnapshot() {
 
         const response =
           await fetch(
-            "http://localhost:3001/api/market/snapshot"
+            `${API_BASE_URL}/api/market/snapshot`
           );
 
 

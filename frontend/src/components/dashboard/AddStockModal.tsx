@@ -3,6 +3,8 @@ import {
   useState
 } from "react";
 
+import { API_BASE_URL } from "../../config/apiBaseUrl";
+
 
 interface StockSuggestion {
   symbol: string;
@@ -138,7 +140,7 @@ function AddStockModal({
 
           const response =
             await fetch(
-              `http://localhost:3001/api/stocks/search?q=${encodeURIComponent(
+              `${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(
                 normalizedQuery
               )}`
             );
@@ -262,7 +264,7 @@ function AddStockModal({
 
       const response =
         await fetch(
-          "http://localhost:3001/api/watchlist",
+          `${API_BASE_URL}/api/watchlist`,
           {
 
             method: "POST",

@@ -9,6 +9,7 @@ import StockDetails from "./StockDetails";
 import StockPulse from "./StockPulse";
 import TopMovers from "./TopMovers";
 import WatchlistPerformanceChart from "./WatchlistPerformanceChart";
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 
 
 /* ========================================
@@ -223,7 +224,7 @@ function PulseOverview({
 
         const response =
           await fetch(
-            "http://localhost:3001/api/dashboard"
+            `${API_BASE_URL}/api/dashboard`
           );
 
 

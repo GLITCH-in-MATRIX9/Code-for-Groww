@@ -1,0 +1,237 @@
+diff --git a/frontend/src/components/dashboard/AddStockModal.tsx b/frontend/src/components/dashboard/AddStockModal.tsx
+index 84ebcd1..be0a03b 100644
+--- a/frontend/src/components/dashboard/AddStockModal.tsx
++++ b/frontend/src/components/dashboard/AddStockModal.tsx
+@@ -3,6 +3,8 @@ import {
+   useState
+ } from "react";
+ 
++import { API_BASE_URL } from "../../config/apiBaseUrl";
++
+ 
+ interface StockSuggestion {
+   symbol: string;
+@@ -138,7 +140,7 @@ function AddStockModal({
+ 
+           const response =
+             await fetch(
+-              `http://localhost:3001/api/stocks/search?q=${encodeURIComponent(
++              `${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(
+                 normalizedQuery
+               )}`
+             );
+@@ -262,7 +264,7 @@ function AddStockModal({
+ 
+       const response =
+         await fetch(
+-          "http://localhost:3001/api/watchlist",
++          `${API_BASE_URL}/api/watchlist`,
+           {
+ 
+             method: "POST",
+diff --git a/frontend/src/components/dashboard/AttentionSummary.tsx b/frontend/src/components/dashboard/AttentionSummary.tsx
+index 9aa2ead..2ce4e83 100644
+--- a/frontend/src/components/dashboard/AttentionSummary.tsx
++++ b/frontend/src/components/dashboard/AttentionSummary.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useState } from "react";
++import { API_BASE_URL } from "../../config/apiBaseUrl";
+ 
+ interface AttentionSummaryData {
+   critical: number;
+@@ -28,7 +29,7 @@ function AttentionSummary() {
+         setError(null);
+ 
+         const response = await fetch(
+-          "http://localhost:3001/api/dashboard"
++          `${API_BASE_URL}/api/dashboard`
+         );
+ 
+         if (!response.ok) {
+diff --git a/frontend/src/components/dashboard/MarketSnapshot.tsx b/frontend/src/components/dashboard/MarketSnapshot.tsx
+index 5517fe5..5b8c9a9 100644
+--- a/frontend/src/components/dashboard/MarketSnapshot.tsx
++++ b/frontend/src/components/dashboard/MarketSnapshot.tsx
+@@ -3,6 +3,8 @@ import {
+   useState
+ } from "react";
+ 
++import { API_BASE_URL } from "../../config/apiBaseUrl";
++
+ 
+ interface MarketIndex {
+ 
+@@ -68,7 +70,7 @@ function MarketSnapshot() {
+ 
+         const response =
+           await fetch(
+-            "http://localhost:3001/api/market/snapshot"
++            `${API_BASE_URL}/api/market/snapshot`
+           );
+ 
+ 
+diff --git a/frontend/src/components/dashboard/MeaningfulnessBreakdownContainer.tsx b/frontend/src/components/dashboard/MeaningfulnessBreakdownContainer.tsx
+index b6a39ad..b1c569f 100644
+--- a/frontend/src/components/dashboard/MeaningfulnessBreakdownContainer.tsx
++++ b/frontend/src/components/dashboard/MeaningfulnessBreakdownContainer.tsx
+@@ -4,6 +4,7 @@ import {
+ } from "react";
+ 
+ import MeaningfulnessBreakdown from "./MeaningfulnessBreakdown";
++import { API_BASE_URL } from "../../config/apiBaseUrl";
+ 
+ 
+ /* ========================================
+@@ -84,7 +85,7 @@ interface MeaningfulnessBreakdownContainerProps {
+ function MeaningfulnessBreakdownContainer({
+   symbol,
+   stock: providedStock,
+-  apiBaseUrl = "http://localhost:3001"
++  apiBaseUrl = API_BASE_URL
+ }: MeaningfulnessBreakdownContainerProps) {
+ 
+ 
+diff --git a/frontend/src/components/dashboard/PulseAIBriefing.tsx b/frontend/src/components/dashboard/PulseAIBriefing.tsx
+index 4e31187..9b61d1c 100644
+--- a/frontend/src/components/dashboard/PulseAIBriefing.tsx
++++ b/frontend/src/components/dashboard/PulseAIBriefing.tsx
+@@ -3,6 +3,8 @@ import {
+   useState
+ } from "react";
+ 
++import { API_BASE_URL } from "../../config/apiBaseUrl";
++
+ 
+ interface DashboardResponse {
+ 
+@@ -56,7 +58,7 @@ function PulseAIBriefing() {
+ 
+         const response =
+           await fetch(
+-            "http://localhost:3001/api/dashboard"
++            `${API_BASE_URL}/api/dashboard`
+           );
+ 
+ 
+diff --git a/frontend/src/components/dashboard/PulseOverview.tsx b/frontend/src/components/dashboard/PulseOverview.tsx
+index 3b1e311..05905ce 100644
+--- a/frontend/src/components/dashboard/PulseOverview.tsx
++++ b/frontend/src/components/dashboard/PulseOverview.tsx
+@@ -9,6 +9,7 @@ import StockDetails from "./StockDetails";
+ import StockPulse from "./StockPulse";
+ import TopMovers from "./TopMovers";
+ import WatchlistPerformanceChart from "./WatchlistPerformanceChart";
++import { API_BASE_URL } from "../../config/apiBaseUrl";
+ 
+ 
+ /* ========================================
+@@ -223,7 +224,7 @@ function PulseOverview({
+ 
+         const response =
+           await fetch(
+-            "http://localhost:3001/api/dashboard"
++            `${API_BASE_URL}/api/dashboard`
+           );
+ 
+ 
+diff --git a/frontend/src/components/dashboard/StockDetails.tsx b/frontend/src/components/dashboard/StockDetails.tsx
+index cf41955..65a38d1 100644
+--- a/frontend/src/components/dashboard/StockDetails.tsx
++++ b/frontend/src/components/dashboard/StockDetails.tsx
+@@ -13,6 +13,7 @@ import {
+   XAxis,
+   YAxis,
+ } from "recharts";
++import { API_BASE_URL } from "../../config/apiBaseUrl";
+ 
+ /* ========================================
+    TYPES
+@@ -106,7 +107,7 @@ function StockDetails({ symbol }: StockDetailsProps) {
+          * and technical indicators.
+          */
+         const response = await fetch(
+-          `http://localhost:3001/api/stocks/${symbol}`,
++          `${API_BASE_URL}/api/stocks/${symbol}`,
+         );
+ 
+         if (!response.ok) {
+diff --git a/frontend/src/components/dashboard/StockPulse.tsx b/frontend/src/components/dashboard/StockPulse.tsx
+index 8e2e9a4..33477a4 100644
+--- a/frontend/src/components/dashboard/StockPulse.tsx
++++ b/frontend/src/components/dashboard/StockPulse.tsx
+@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
+ 
+ import AIUnavailableState from "./AIUnavailableState";
+ import MeaningfulnessBreakdownContainer from "./MeaningfulnessBreakdownContainer";
++import { API_BASE_URL } from "../../config/apiBaseUrl";
+ 
+ interface Snapshot {
+   id: number;
+@@ -132,7 +133,7 @@ function StockPulse({ symbol }: StockPulseProps) {
+         setError(null);
+ 
+         const response = await fetch(
+-          `http://localhost:3001/api/stocks/${symbol}/since-last-checked`,
++          `${API_BASE_URL}/api/stocks/${symbol}/since-last-checked`,
+         );
+ 
+         if (!response.ok) {
+diff --git a/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx b/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
+index 5ce6fca..57ee589 100644
+--- a/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
++++ b/frontend/src/components/dashboard/WatchlistPerformanceChart.tsx
+@@ -14,6 +14,8 @@ import {
+   YAxis,
+ } from "recharts";
+ 
++import { API_BASE_URL } from "../../config/apiBaseUrl";
++
+ 
+ interface PerformancePoint {
+ 
+@@ -164,7 +166,7 @@ function WatchlistPerformanceChart() {
+ 
+         const response =
+           await fetch(
+-            `http://localhost:3001/api/dashboard/performance?range=${range}`
++            `${API_BASE_URL}/api/dashboard/performance?range=${range}`
+           );
+ 
+ 
+diff --git a/frontend/src/config/apiBaseUrl.ts b/frontend/src/config/apiBaseUrl.ts
+new file mode 100644
+index 0000000..260b049
+--- /dev/null
++++ b/frontend/src/config/apiBaseUrl.ts
+@@ -0,0 +1 @@
++export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+diff --git a/frontend/src/pages/Dashboard.tsx b/frontend/src/pages/Dashboard.tsx
+index df2f9b4..dd5279b 100644
+--- a/frontend/src/pages/Dashboard.tsx
++++ b/frontend/src/pages/Dashboard.tsx
+@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
+ import AddStockModal from "../components/dashboard/AddStockModal";
+ import DashboardHeader from "../components/dashboard/DashboardHeader";
+ import PulseOverview from "../components/dashboard/PulseOverview";
++import { API_BASE_URL } from "../config/apiBaseUrl";
+ 
+ interface WatchlistItem {
+   id: number;
+@@ -37,7 +38,7 @@ function Dashboard() {
+ 
+       setError(null);
+ 
+-      const response = await fetch("http://localhost:3001/api/watchlist");
++      const response = await fetch(`${API_BASE_URL}/api/watchlist`);
+ 
+       if (!response.ok) {
+         throw new Error("Unable to fetch watchlist.");
+@@ -79,7 +80,7 @@ function Dashboard() {
+   async function handleRemoveStock(symbol: string) {
+     try {
+       const response = await fetch(
+-        `http://localhost:3001/api/watchlist/${symbol}`,
++        `${API_BASE_URL}/api/watchlist/${symbol}`,
+         {
+           method: "DELETE",
+         },

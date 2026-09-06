@@ -3,6 +3,8 @@ import {
   useState
 } from "react";
 
+import { API_BASE_URL } from "../../config/apiBaseUrl";
+
 
 interface DashboardResponse {
 
@@ -56,7 +58,7 @@ function PulseAIBriefing() {
 
         const response =
           await fetch(
-            "http://localhost:3001/api/dashboard"
+            `${API_BASE_URL}/api/dashboard`
           );
 
 

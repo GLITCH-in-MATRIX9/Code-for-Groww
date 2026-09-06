@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 
 /* ========================================
    TYPES
@@ -106,7 +107,7 @@ function StockDetails({ symbol }: StockDetailsProps) {
          * and technical indicators.
          */
         const response = await fetch(
-          `http://localhost:3001/api/stocks/${symbol}`,
+          `${API_BASE_URL}/api/stocks/${symbol}`,
         );
 
         if (!response.ok) {

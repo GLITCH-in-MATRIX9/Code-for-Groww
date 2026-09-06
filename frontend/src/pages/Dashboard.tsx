@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AddStockModal from "../components/dashboard/AddStockModal";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import PulseOverview from "../components/dashboard/PulseOverview";
+import { API_BASE_URL } from "../config/apiBaseUrl";
 
 interface WatchlistItem {
   id: number;
@@ -37,7 +38,7 @@ function Dashboard() {
 
       setError(null);
 
-      const response = await fetch("http://localhost:3001/api/watchlist");
+      const response = await fetch(`${API_BASE_URL}/api/watchlist`);
 
       if (!response.ok) {
         throw new Error("Unable to fetch watchlist.");
@@ -79,7 +80,7 @@ function Dashboard() {
   async function handleRemoveStock(symbol: string) {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/watchlist/${symbol}`,
+        `${API_BASE_URL}/api/watchlist/${symbol}`,
         {
           method: "DELETE",
         },

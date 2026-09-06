@@ -4,6 +4,7 @@ import {
 } from "react";
 
 import MeaningfulnessBreakdown from "./MeaningfulnessBreakdown";
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 
 
 /* ========================================
@@ -84,7 +85,7 @@ interface MeaningfulnessBreakdownContainerProps {
 function MeaningfulnessBreakdownContainer({
   symbol,
   stock: providedStock,
-  apiBaseUrl = "http://localhost:3001"
+  apiBaseUrl = API_BASE_URL
 }: MeaningfulnessBreakdownContainerProps) {
 
 

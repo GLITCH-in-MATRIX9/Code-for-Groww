@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import AIUnavailableState from "./AIUnavailableState";
 import MeaningfulnessBreakdownContainer from "./MeaningfulnessBreakdownContainer";
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 
 interface Snapshot {
   id: number;
@@ -132,7 +133,7 @@ function StockPulse({ symbol }: StockPulseProps) {
         setError(null);
 
         const response = await fetch(
-          `http://localhost:3001/api/stocks/${symbol}/since-last-checked`,
+          `${API_BASE_URL}/api/stocks/${symbol}/since-last-checked`,
         );
 
         if (!response.ok) {
