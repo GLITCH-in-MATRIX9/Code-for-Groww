@@ -78,7 +78,60 @@ async function getCachedData<T>(
 let lastYahooRequestTime = 0;
 let yahooQueue: Promise<unknown> = Promise.resolve();
 
-const MIN_REQUEST_INTERVAL = 1500;
+const MIN_REQUEST_INTERVAL = 2500;
+
+/* ========================================
+   CIRCUIT BREAKER
+
+   Cloud-hosted IPs (Render, AWS, etc.) get
+   rate-limited by Yahoo's unofficial crumb
+   endpoint far more aggressively than
+   residential IPs. When we're clearly being
+   blocked, retrying every incoming request
+   individually just hammers Yahoo harder and
+   makes every caller wait through a doomed
+   retry. Instead: after a few consecutive
+   failures, stop calling Yahoo entirely for a
+   cooldown window and fail fast.
+======================================== */
+
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_BASE_COOLDOWN_MS = 30_000;
+const CIRCUIT_MAX_COOLDOWN_MS = 5 * 60_000;
+
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
+let currentCooldownMs = CIRCUIT_BASE_COOLDOWN_MS;
+
+function isCircuitOpen(): boolean {
+  return Date.now() < circuitOpenUntil;
+}
+
+function recordSuccess(): void {
+  consecutiveFailures = 0;
+  currentCooldownMs = CIRCUIT_BASE_COOLDOWN_MS;
+}
+
+function recordFailure(): void {
+  consecutiveFailures += 1;
+
+  if (consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
+    circuitOpenUntil = Date.now() + currentCooldownMs;
+
+    console.warn(
+      `Yahoo Finance circuit opened after ${consecutiveFailures} ` +
+      `consecutive failures. Pausing requests for ` +
+      `${Math.round(currentCooldownMs / 1000)}s.`
+    );
+
+    // Back off further next time if it's still failing
+    // once the cooldown ends.
+    currentCooldownMs = Math.min(
+      currentCooldownMs * 2,
+      CIRCUIT_MAX_COOLDOWN_MS
+    );
+  }
+}
 
 function isYahooRateLimitError(error: unknown): boolean {
   const message =
@@ -114,6 +167,18 @@ function runYahooRequest<T>(
   operation: () => Promise<T>
 ): Promise<T> {
   const request = yahooQueue.then(async () => {
+
+    if (isCircuitOpen()) {
+      const secondsLeft = Math.ceil(
+        (circuitOpenUntil - Date.now()) / 1000
+      );
+
+      throw new Error(
+        `Yahoo Finance is temporarily unavailable ` +
+        `(rate limited). Retrying in ~${secondsLeft}s.`
+      );
+    }
+
     const elapsed =
       Date.now() - lastYahooRequestTime;
 
@@ -126,27 +191,49 @@ function runYahooRequest<T>(
     lastYahooRequestTime = Date.now();
 
     try {
-      return await operation();
+      const result = await operation();
+
+      recordSuccess();
+
+      return result;
     } catch (error) {
       console.error(
         "Yahoo Finance request failed:",
         getErrorMessage(error)
       );
 
-      /*
-       * Retry only once, and only for rate limits.
-       * Do not create a repeated retry storm.
-       */
       if (isYahooRateLimitError(error)) {
-        console.warn(
-          "Yahoo Finance rate limit detected. Waiting before one retry..."
-        );
+        recordFailure();
 
-        await wait(5000);
+        /*
+         * Only retry once inline — the circuit
+         * breaker (not repeated inline retries)
+         * is what protects against a sustained
+         * block, so don't compound waits here.
+         */
+        if (!isCircuitOpen()) {
+          console.warn(
+            "Yahoo Finance rate limit detected. Waiting before one retry..."
+          );
 
-        lastYahooRequestTime = Date.now();
+          await wait(5000);
 
-        return await operation();
+          lastYahooRequestTime = Date.now();
+
+          try {
+            const result = await operation();
+
+            recordSuccess();
+
+            return result;
+          } catch (retryError) {
+            if (isYahooRateLimitError(retryError)) {
+              recordFailure();
+            }
+
+            throw retryError;
+          }
+        }
       }
 
       throw error;
